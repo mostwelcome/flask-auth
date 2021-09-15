@@ -1,4 +1,6 @@
+from typing import NewType
 from flask import Flask, render_template, request, redirect, url_for
+from werkzeug.utils import send_from_directory
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
 
@@ -9,12 +11,12 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-#
-# @app.before_first_request
-# def create_table():
-#     db.create_all()
-#
-#
+
+@app.before_first_request
+def create_table():
+    db.create_all()
+
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(100), unique=True)
@@ -27,7 +29,7 @@ def home():
     return render_template("index.html")
 
 
-@app.route('/register', methods=["POST", "GET", "DELETE"])
+@app.route('/register', methods=["POST", "GET"])
 def register():
     print('here')
     if request.method == "POST":
@@ -40,7 +42,7 @@ def register():
         db.session.add(new_user)
         db.session.commit()
 
-        return redirect(url_for("secrets"))
+        return render_template("secrets.html",user_name=new_user.name)
 
     return render_template("register.html")
 
@@ -68,7 +70,8 @@ def logout():
 
 @app.route('/download')
 def download():
-    pass
+    return send_from_directory(app.config['UPLOAD_FOLDER'],
+                               'cheat_sheet.pdf', as_attachment=True)
 
 
 if __name__ == "__main__":
