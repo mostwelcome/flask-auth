@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, send_from_directory, abort
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash
 
 app = Flask(__name__)
 
@@ -34,7 +35,7 @@ def register():
         new_user = User(
             email=request.form.get('email'),
             name=request.form.get('name'),
-            password=request.form.get('password')
+            password=generate_password_hash(password=request.form.get('password'),method='pbkdf2:sha256',salt_length=8)
         )
 
         db.session.add(new_user)
