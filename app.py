@@ -1,6 +1,4 @@
-from typing import NewType
-from flask import Flask, render_template, request, redirect, url_for
-from werkzeug.utils import send_from_directory
+from flask import Flask, render_template, request, send_from_directory, abort
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
 
@@ -42,7 +40,7 @@ def register():
         db.session.add(new_user)
         db.session.commit()
 
-        return render_template("secrets.html",user_name=new_user.name)
+        return render_template("secrets.html", user_name=new_user.name)
 
     return render_template("register.html")
 
@@ -70,8 +68,11 @@ def logout():
 
 @app.route('/download')
 def download():
-    return send_from_directory(app.config['UPLOAD_FOLDER'],
-                               'cheat_sheet.pdf', as_attachment=True)
+    # uploads = os.path.join(current_app.root_path, app.config['UPLOAD_FOLDER'])
+    try:
+        return send_from_directory(app.static_folder, 'files/cheat_sheet.pdf')
+    except FileNotFoundError:
+        abort(404)
 
 
 if __name__ == "__main__":
