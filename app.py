@@ -1,21 +1,25 @@
-from flask import Flask, render_template, request, send_from_directory, abort
-from flask_login import UserMixin
+from flask import Flask, render_template, request, url_for, redirect, flash, send_from_directory
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash
+from flask_login import UserMixin, login_user, LoginManager, login_required, current_user, logout_user
 
 app = Flask(__name__)
 
-# app.config['SECRET_KEY'] = 'any-secret-key-you-choose'
+app.config['SECRET_KEY'] = 'secret-key-goes-here'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-
-@app.before_first_request
-def create_table():
-    db.create_all()
+login_manager = LoginManager()
+login_manager.init_app(app)
 
 
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+
+##CREATE TABLE
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(100), unique=True)
@@ -23,57 +27,73 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(1000))
 
 
+# db.create_all()
+
+
 @app.route('/')
 def home():
     return render_template("index.html")
 
 
-@app.route('/register', methods=["POST", "GET"])
+@app.route('/register', methods=["GET", "POST"])
 def register():
-    print('here')
     if request.method == "POST":
+        hash_and_salted_password = generate_password_hash(
+            request.form.get('password'),
+            method='pbkdf2:sha256',
+            salt_length=8
+        )
         new_user = User(
             email=request.form.get('email'),
             name=request.form.get('name'),
-            password=generate_password_hash(password=request.form.get('password'),method='pbkdf2:sha256',salt_length=8)
+            password=hash_and_salted_password,
         )
-
         db.session.add(new_user)
         db.session.commit()
 
-        return render_template("secrets.html", user_name=new_user.name)
+        # Log in and authenticate user after adding details to database.
+        login_user(new_user)
+
+        return redirect(url_for("secrets"))
 
     return render_template("register.html")
 
 
-@app.route('/swag')
-def swag():
-    print('here')
-    return {'a': 1}
-
-
-@app.route('/login')
+@app.route('/login', methods=["GET", "POST"])
 def login():
+    if request.method == "POST":
+        email = request.form.get('email')
+        password = request.form.get('password')
+
+        # Find user by email entered.
+        print('email')
+        user = User.query.filter_by(email=email).first()
+
+        # Check stored password hash against entered password hashed.
+        if check_password_hash(user.password, password):
+            login_user(user)
+            return redirect(url_for('secrets'))
+
     return render_template("login.html")
 
 
 @app.route('/secrets')
+@login_required
 def secrets():
-    return render_template("secrets.html")
+    print(current_user.name)
+    return render_template("secrets.html", name=current_user.name)
 
 
 @app.route('/logout')
 def logout():
-    pass
+    logout_user()
+    return redirect(url_for('home'))
 
 
 @app.route('/download')
+@login_required
 def download():
-    # uploads = os.path.join(current_app.root_path, app.config['UPLOAD_FOLDER'])
-    try:
-        return send_from_directory(app.static_folder, 'files/cheat_sheet.pdf')
-    except FileNotFoundError:
-        abort(404)
+    return send_from_directory('static', path="files/cheat_sheet.pdf")
 
 
 if __name__ == "__main__":
