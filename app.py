@@ -43,18 +43,22 @@ def register():
             method='pbkdf2:sha256',
             salt_length=8
         )
-        new_user = User(
-            email=request.form.get('email'),
-            name=request.form.get('name'),
-            password=hash_and_salted_password,
-        )
-        db.session.add(new_user)
-        db.session.commit()
 
-        # Log in and authenticate user after adding details to database.
-        login_user(new_user)
+        user = User.query.filter_by(email=request.form.get('email')).first()
+        if not user:
+            new_user = User(
+                email=request.form.get('email'),
+                name=request.form.get('name'),
+                password=hash_and_salted_password,
+            )
 
-        return redirect(url_for("secrets"))
+            db.session.add(new_user)
+            db.session.commit()
+            # Log in and authenticate user after adding details to database.
+            login_user(new_user)
+            return redirect(url_for("secrets"))
+        else:
+            flash('Tho email address already exists')
 
     return render_template("register.html")
 
@@ -69,18 +73,14 @@ def login():
         user = User.query.filter_by(email=email).first()
         # email doesn't exist in the database.Please register yourself first
         if user is None:
-            error = 'This email address is not present!Please try again or register yourself'
-            return render_template("login.html", error_message=error)
-
+            flash('This email address is not present!Please try again or register yourself')
         # Check stored password hash against entered password hashed.
         if check_password_hash(user.password, password):
             login_user(user)
             flash('You were successfully logged in')
             return redirect(url_for('secrets'))
         else:
-            error = 'Invalid credentials!'
-            return render_template("login.html", error_message=error)
-
+            flash('Invalid credentials!')
     return render_template("login.html")
 
 
