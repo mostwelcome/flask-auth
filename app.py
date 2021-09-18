@@ -1,7 +1,7 @@
-from flask import Flask, render_template, request, url_for, redirect, flash, send_from_directory
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, render_template, request, url_for, redirect, send_from_directory, flash
 from flask_login import UserMixin, login_user, LoginManager, login_required, current_user, logout_user
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
@@ -66,13 +66,20 @@ def login():
         password = request.form.get('password')
 
         # Find user by email entered.
-        print('email')
         user = User.query.filter_by(email=email).first()
+        # email doesn't exist in the database.Please register yourself first
+        if user is None:
+            error = 'This email address is not present!Please try again or register yourself'
+            return render_template("login.html", error_message=error)
 
         # Check stored password hash against entered password hashed.
         if check_password_hash(user.password, password):
             login_user(user)
+            flash('You were successfully logged in')
             return redirect(url_for('secrets'))
+        else:
+            error = 'Invalid credentials!'
+            return render_template("login.html", error_message=error)
 
     return render_template("login.html")
 
